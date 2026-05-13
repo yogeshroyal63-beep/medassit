@@ -1,0 +1,117 @@
+name: MedAssist CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend Tests + Coverage ─────────────────────────────────────────────────
+  backend-tests:
+    name: Backend Tests (Node.js)
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ["27017:27017"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: medassist/backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: medassist/backend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: medassist/backend
+        env:
+          TEST_MONGO_URI: mongodb://localhost:27017/medassist_test_ci
+          JWT_ACCESS_SECRET: ci_access_secret_not_real
+          JWT_REFRESH_SECRET: ci_refresh_secret_not_real
+          NODE_ENV: test
+        run: npm test -- --forceExit --detectOpenHandles
+
+      - name: Run coverage (enforces thresholds)
+        working-directory: medassist/backend
+        env:
+          TEST_MONGO_URI: mongodb://localhost:27017/medassist_test_ci
+          JWT_ACCESS_SECRET: ci_access_secret_not_real
+          JWT_REFRESH_SECRET: ci_refresh_secret_not_real
+          NODE_ENV: test
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: medassist/backend/coverage/lcov.info
+
+  # ── AI Service Tests ─────────────────────────────────────────────────────────
+  ai-tests:
+    name: AI Service Tests (Python)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: medassist/ai_service
+        run: pip install -r requirements.txt
+
+      - name: Run AI service tests
+        working-directory: medassist/ai_service
+        run: python -m pytest test_triage.py test_model.py -v --tb=short
+
+  # ── Frontend Tests + Build ───────────────────────────────────────────────────
+  frontend:
+    name: Frontend Tests + Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: medassist/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: medassist/frontend
+        run: npm ci
+
+      - name: Run component tests
+        working-directory: medassist/frontend
+        run: npm test
+
+      - name: Build
+        working-directory: medassist/frontend
+        run: npm run build
+
+  # ── Docker Compose Validation ────────────────────────────────────────────────
+  docker-validate:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        working-directory: medassist
+        run: docker compose config --quiet

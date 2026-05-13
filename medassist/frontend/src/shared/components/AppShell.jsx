@@ -10,6 +10,8 @@ const AppShell = () => {
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  
+
   return (
     <div className="app-layout">
 

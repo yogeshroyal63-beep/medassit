@@ -2,10 +2,13 @@ const mongoose = require("mongoose");
 const Message = require("./message.model");
 const User = require("../auth/auth.model");
 
+const MAX_CONTENT_LENGTH = 5000;
+
 async function send(user, body) {
   const receiverId = body.receiverId;
   // Accept both "content" and "text" for compatibility
   const content = String(body.content || body.text || "").trim();
+
   if (!receiverId || !mongoose.Types.ObjectId.isValid(receiverId)) {
     const err = new Error("receiverId is required");
     err.status = 400;
@@ -13,6 +16,11 @@ async function send(user, body) {
   }
   if (!content) {
     const err = new Error("content is required");
+    err.status = 400;
+    throw err;
+  }
+  if (content.length > MAX_CONTENT_LENGTH) {
+    const err = new Error(`Message content must be under ${MAX_CONTENT_LENGTH} characters`);
     err.status = 400;
     throw err;
   }
@@ -40,7 +48,6 @@ async function conversations(user) {
     const other = (m.senderId.toString() === myId.toString() ? m.receiverId : m.senderId).toString();
     if (seen.has(other)) continue;
     seen.set(other, m);
-    // Use the other user's ID as the conversation identifier
     conv.push({ _id: other, userId: other, lastMessage: m.content, lastAt: m.createdAt });
   }
 

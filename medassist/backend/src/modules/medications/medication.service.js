@@ -1,7 +1,31 @@
 const Medication = require("./medication.model");
 
+// Fields a patient is allowed to set when creating or updating a medication.
+// patientId is injected server-side and must never come from the request body.
+const ALLOWED_FIELDS = [
+  "name",
+  "dosage",
+  "frequency",
+  "times",
+  "startDate",
+  "endDate",
+  "instructions",
+  "prescribedBy",
+  "isActive",
+];
+
+/** Pick only allowed fields from a request body. */
+function allowlist(body) {
+  const safe = {};
+  for (const key of ALLOWED_FIELDS) {
+    if (body[key] !== undefined) safe[key] = body[key];
+  }
+  return safe;
+}
+
 async function add(user, body) {
-  const med = await Medication.create({ ...body, patientId: user.id });
+  const safe = allowlist(body);
+  const med = await Medication.create({ ...safe, patientId: user.id });
   return med;
 }
 
@@ -11,7 +35,12 @@ async function getAll(user) {
 }
 
 async function update(user, id, body) {
-  const med = await Medication.findOneAndUpdate({ _id: id, patientId: user.id }, body, { new: true });
+  const safe = allowlist(body);
+  const med = await Medication.findOneAndUpdate(
+    { _id: id, patientId: user.id },
+    safe,
+    { new: true }
+  );
   if (!med) {
     const err = new Error("Medication not found");
     err.status = 404;
@@ -45,4 +74,3 @@ async function markTaken(user, id) {
 }
 
 module.exports = { add, getAll, update, remove, markTaken };
-

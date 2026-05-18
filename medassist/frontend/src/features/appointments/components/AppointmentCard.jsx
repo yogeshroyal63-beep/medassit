@@ -15,7 +15,11 @@ const AppointmentCard = ({ appointment, onCancel }) => {
   return (
     <div className="data-row" style={{ borderRadius: "14px", padding: "1.1rem 1.25rem", boxShadow: "var(--shadow-sm)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "color-mix(in srgb, var(--brand-700) 12%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{
+          width: "40px", height: "40px", borderRadius: "10px",
+          background: "color-mix(in srgb, var(--brand-700) 12%, transparent)",
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
           <Calendar size={18} color="var(--brand-700)" />
         </div>
         <div>
@@ -34,6 +38,7 @@ const AppointmentCard = ({ appointment, onCancel }) => {
           </p>
         </div>
       </div>
+
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
         <span className={`badge ${badgeClass}`} style={{ textTransform: "capitalize" }}>
           {a.status}
@@ -41,8 +46,8 @@ const AppointmentCard = ({ appointment, onCancel }) => {
         {onCancel && a.status === "pending" && (
           <button
             onClick={() => onCancel(a._id)}
-            className="badge badge-rose"
-            style={{ cursor: "pointer", border: "none", padding: "4px 10px" }}
+            className="btn-cancel"
+            aria-label="Cancel appointment"
           >
             Cancel
           </button>

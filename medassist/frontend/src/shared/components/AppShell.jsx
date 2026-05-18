@@ -3,31 +3,26 @@ import { Outlet } from "react-router-dom";
 import { Menu, X, Sun, Moon } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
-import Sidebar from "./Sidebar";   // ← Use the richer icon sidebar everywhere
+import Sidebar from "./Sidebar";
 
 const AppShell = () => {
-  const { user }             = useAuth();
+  const { user }               = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  
 
   return (
     <div className="app-layout">
 
-      {/* ── Mobile overlay ───────────────────────────────────────────────── */}
+      {/* ── Mobile overlay ─────────────────────────────────────────────────── */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 90,
-            background: "rgba(0,0,0,0.45)",
-          }}
+          style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(0,0,0,0.45)" }}
           aria-hidden="true"
         />
       )}
 
-      {/* ── Mobile toggle button ─────────────────────────────────────────── */}
+      {/* ── Mobile toggle button ───────────────────────────────────────────── */}
       <button
         onClick={() => setSidebarOpen(v => !v)}
         aria-label={sidebarOpen ? "Close menu" : "Open menu"}
@@ -37,19 +32,20 @@ const AppShell = () => {
           position: "fixed", left: "1rem", top: "1rem", zIndex: 110,
           padding: "0.5rem", borderRadius: "8px",
           background: "var(--brand-700)", border: "none",
-          cursor: "pointer", color: "#fff", display: "none",
+          cursor: "pointer", color: "#fff",
+          display: "none",   /* shown via CSS at ≤768px */
         }}
       >
         {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
       </button>
 
-      {/* ── Sidebar (Sidebar.jsx handles all roles + icons) ─────────────── */}
+      {/* ── Sidebar ────────────────────────────────────────────────────────── */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* ── Main content area ────────────────────────────────────────────── */}
+      {/* ── Main content ───────────────────────────────────────────────────── */}
       <main className="app-main">
 
-        {/* Topbar */}
+        {/* Topbar — padding-left handled by index.css @media rule */}
         <header style={{
           position: "sticky", top: 0, zIndex: 30,
           background: "var(--card)",

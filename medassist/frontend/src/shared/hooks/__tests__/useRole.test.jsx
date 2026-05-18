@@ -2,8 +2,10 @@ import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { useRole } from "../useRole";
 
-vi.mock("./useAuth");
-import { useAuth } from "./useAuth";
+// Fix: was vi.mock("./useAuth") which resolved to the __tests__ directory itself.
+// Correct path is one level up — ../useAuth
+vi.mock("../useAuth");
+import { useAuth } from "../useAuth";
 
 describe("useRole", () => {
   it("returns null role when there is no user", () => {

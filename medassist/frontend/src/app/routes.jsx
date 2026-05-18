@@ -17,9 +17,11 @@ import Settings       from "../features/patient/pages/Settings.jsx";
 import SmartCheck from "../features/triage/pages/SmartCheck.jsx";
 
 // Doctors
-import FindDoctor   from "../features/doctors/pages/FindDoctor.jsx";
-import DoctorPortal from "../features/doctors/pages/DoctorPortal.jsx";
+import FindDoctor    from "../features/doctors/pages/FindDoctor.jsx";
+import DoctorPortal  from "../features/doctors/pages/DoctorPortal.jsx";
 import DoctorProfile from "../features/doctors/pages/DoctorProfile.jsx";
+import PatientList   from "../features/doctors/pages/PatientList.jsx";
+import DoctorSchedule from "../features/doctors/pages/DoctorSchedule.jsx";
 
 // Appointments
 import AppointmentHistory from "../features/appointments/pages/AppointmentHistory.jsx";
@@ -38,8 +40,11 @@ import Messages from "../features/messaging/pages/Messages.jsx";
 // Video
 import VideoConsultation from "../features/video/pages/VideoConsultation.jsx";
 
-// Admin
-import AdminPortal from "../features/admin/pages/AdminPortal.jsx";
+// Admin — each sub-route is its own page now
+import AdminPortal     from "../features/admin/pages/AdminPortal.jsx";
+import AdminUsers      from "../features/admin/pages/AdminUsers.jsx";
+import AdminAuditLogs  from "../features/admin/pages/AdminAuditLogs.jsx";
+import DoctorApprovals from "../features/admin/pages/DoctorApprovals.jsx";
 
 // Shared
 import ProtectedRoute from "../shared/components/ProtectedRoute.jsx";
@@ -66,8 +71,8 @@ const linkStyle = { display: "inline-block", marginTop: "1.5rem", fontSize: "14p
 
 const AccessDenied = () => (
   <div style={{ textAlign: "center", padding: "6rem 2rem" }}>
-    <p style={{ fontSize: "48px", fontWeight: 500, color: "var(--color-text-primary)" }}>403</p>
-    <p style={{ fontSize: "16px", color: "var(--color-text-secondary)", marginTop: "0.5rem" }}>
+    <p style={{ fontSize: "48px", fontWeight: 500, color: "var(--text)" }}>403</p>
+    <p style={{ fontSize: "16px", color: "var(--text-muted)", marginTop: "0.5rem" }}>
       You don't have permission to view this page.
     </p>
     <a href="/" style={linkStyle}>Go home</a>
@@ -76,8 +81,8 @@ const AccessDenied = () => (
 
 const NotFound = () => (
   <div style={{ textAlign: "center", padding: "6rem 2rem" }}>
-    <p style={{ fontSize: "48px", fontWeight: 500, color: "var(--color-text-primary)" }}>404</p>
-    <p style={{ fontSize: "16px", color: "var(--color-text-secondary)", marginTop: "0.5rem" }}>
+    <p style={{ fontSize: "48px", fontWeight: 500, color: "var(--text)" }}>404</p>
+    <p style={{ fontSize: "16px", color: "var(--text-muted)", marginTop: "0.5rem" }}>
       Page not found.
     </p>
     <a href="/" style={linkStyle}>Go home</a>
@@ -130,18 +135,18 @@ const AppRoutes = () => {
         {/* ── Doctor ──────────────────────────────────────────── */}
         <Route path="/doctor/dashboard"           element={<RoleGuard role="doctor"><DoctorPortal /></RoleGuard>} />
         <Route path="/doctor/appointments"        element={<RoleGuard role="doctor"><AppointmentHistory /></RoleGuard>} />
-        <Route path="/doctor/patients"            element={<RoleGuard role="doctor"><DoctorPortal /></RoleGuard>} />
-        <Route path="/doctor/schedule"            element={<RoleGuard role="doctor"><DoctorPortal /></RoleGuard>} />
+        <Route path="/doctor/patients"            element={<RoleGuard role="doctor"><PatientList /></RoleGuard>} />
+        <Route path="/doctor/schedule"            element={<RoleGuard role="doctor"><DoctorSchedule /></RoleGuard>} />
         <Route path="/doctor/messages"            element={<RoleGuard role="doctor"><Messages /></RoleGuard>} />
         <Route path="/doctor/video-consultation"  element={<RoleGuard role="doctor"><VideoConsultation /></RoleGuard>} />
         <Route path="/doctor/profile"             element={<RoleGuard role="doctor"><DoctorProfile /></RoleGuard>} />
         <Route path="/doctor/settings"            element={<RoleGuard role="doctor"><Settings /></RoleGuard>} />
 
-        {/* ── Admin ───────────────────────────────────────────── */}
+        {/* ── Admin — each route is its own page ──────────────── */}
         <Route path="/admin/dashboard"        element={<RoleGuard role="admin"><AdminPortal /></RoleGuard>} />
-        <Route path="/admin/doctor-approvals" element={<RoleGuard role="admin"><AdminPortal /></RoleGuard>} />
-        <Route path="/admin/users"            element={<RoleGuard role="admin"><AdminPortal /></RoleGuard>} />
-        <Route path="/admin/audit-logs"       element={<RoleGuard role="admin"><AdminPortal /></RoleGuard>} />
+        <Route path="/admin/doctor-approvals" element={<RoleGuard role="admin"><DoctorApprovals /></RoleGuard>} />
+        <Route path="/admin/users"            element={<RoleGuard role="admin"><AdminUsers /></RoleGuard>} />
+        <Route path="/admin/audit-logs"       element={<RoleGuard role="admin"><AdminAuditLogs /></RoleGuard>} />
 
       </Route>
 

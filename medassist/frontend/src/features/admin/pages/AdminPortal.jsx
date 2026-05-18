@@ -1,5 +1,94 @@
 import { useEffect, useState } from "react";
 import api from "../../../shared/utils/api";
+import { Users, Stethoscope, Calendar, Activity } from "lucide-react";
+
+const AdminPortal = () => {
+  const [stats, setStats]   = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError]   = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    try {
+      const r = await api.get("/admin/stats");
+      setStats(r.data || {});
+    } catch {
+      setError("Failed to load dashboard stats.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load().catch(() => null); }, []);
+
+  const statCards = [
+    { label: "Total Patients",       value: stats.totalPatients ?? 0,        icon: Users,      color: "var(--brand-700)", bg: "color-mix(in srgb, var(--brand-700) 10%, transparent)" },
+    { label: "Total Doctors",        value: stats.totalDoctors ?? 0,         icon: Stethoscope, color: "#0f766e",         bg: "#f0fdfa" },
+    { label: "Total Appointments",   value: stats.totalAppointments ?? 0,    icon: Calendar,   color: "var(--brand-600)", bg: "color-mix(in srgb, var(--brand-600) 10%, transparent)" },
+    { label: "Triage Sessions",      value: stats.totalTriageSessions ?? 0,  icon: Activity,   color: "#b45309",          bg: "#fffbeb" },
+  ];
+
+  return (
+    <div>
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h1 className="page-title">Admin Dashboard</h1>
+        <p className="page-subtitle">Platform overview — use the sidebar to manage doctors, users, and audit logs</p>
+      </div>
+
+      {error && (
+        <div style={{
+          padding: "0.75rem 1rem", borderRadius: "10px",
+          background: "var(--danger-bg)", border: "1px solid var(--danger-border)",
+          color: "var(--danger-text)", fontSize: "13px", marginBottom: "1rem",
+          display: "flex", justifyContent: "space-between",
+        }}>
+          {error}
+          <button onClick={load} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--danger-text)", fontWeight: 700, textDecoration: "underline" }}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="stat-grid">
+        {loading
+          ? [1,2,3,4].map(i => <div key={i} style={{ height: "88px", borderRadius: "12px", background: "var(--border)", animation: "pulse-ring 1.5s infinite" }} />)
+          : statCards.map(({ label, value, icon: Icon, color, bg }) => (
+            <div key={label} className="stat-card">
+              <div className="stat-icon" style={{ background: bg }}>
+                <Icon size={18} color={color} aria-hidden="true" />
+              </div>
+              <p className="stat-label">{label}</p>
+              <p className="stat-value">{value}</p>
+            </div>
+          ))
+        }
+      </div>
+
+      {/* Quick links */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "1rem" }}>
+        {[
+          { href: "/admin/doctor-approvals", label: "Doctor Approvals", desc: "Review and approve pending doctors", color: "var(--brand-700)" },
+          { href: "/admin/users",            label: "User Management",   desc: "View and manage all platform users", color: "#0f766e" },
+          { href: "/admin/audit-logs",       label: "Audit Logs",        desc: "Browse triage and appointment events", color: "#b45309" },
+        ].map(({ href, label, desc, color }) => (
+          <a key={href} href={href} style={{ textDecoration: "none" }}>
+            <div className="section-card" style={{ cursor: "pointer", transition: "box-shadow 0.15s", borderLeft: `4px solid ${color}` }}
+              onMouseEnter={e => e.currentTarget.style.boxShadow = "var(--shadow)"}
+              onMouseLeave={e => e.currentTarget.style.boxShadow = "var(--shadow-sm)"}
+            >
+              <p style={{ margin: "0 0 4px", fontWeight: 600, fontSize: "13px", color }}>{label}</p>
+              <p style={{ margin: 0, fontSize: "12px", color: "var(--text-muted)" }}>{desc}</p>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default AdminPortal;
+import { useEffect, useState } from "react";
+import api from "../../../shared/utils/api";
 import toast from "react-hot-toast";
 import { Users, Stethoscope, Calendar, Activity, ChevronLeft, ChevronRight } from "lucide-react";
 

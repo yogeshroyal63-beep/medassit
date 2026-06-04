@@ -1,0 +1,38 @@
+/* globals.css — supplementary design tokens only.
+   Tailwind directives and all base brand/surface/text tokens live in index.css.
+   This file adds tokens used by globals-specific component styles only. */
+
+:root {
+  --background: var(--surface);
+  --foreground: var(--text);
+  --primary: var(--brand-500);
+  --primary-foreground: #ffffff;
+  --secondary: #14B8A6;
+  --secondary-foreground: #ffffff;
+  --muted: var(--surface-elevated);
+  --muted-foreground: var(--text-muted);
+  --accent: #10B981;
+  --input-background: var(--card);
+  --medical-blue: #3B82F6;
+  --medical-teal: #14B8A6;
+  --medical-green: #10B981;
+  --severity-low: #10B981;
+  --severity-medium: #F59E0B;
+  --severity-high: #EF4444;
+}
+
+/* Dark mode — always target html[data-theme="dark"] to match index.css */
+html[data-theme="dark"] {
+  --primary: #60a5fa;
+  --primary-foreground: #0f172a;
+  --secondary: #2dd4bf;
+  --secondary-foreground: #0f172a;
+  --accent: #34d399;
+  --medical-blue: #60a5fa;
+  --medical-teal: #2dd4bf;
+  --medical-green: #34d399;
+  --severity-low: #34d399;
+  --severity-medium: #fbbf24;
+  --severity-high: #f87171;
+  color-scheme: dark;
+}

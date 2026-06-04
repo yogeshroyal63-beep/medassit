@@ -1,0 +1,64 @@
+# ── TRAINED MODEL WEIGHTS (too large for GitHub) ──
+saved_model/
+*.pkl
+*.pt
+*.pth
+*.bin
+*.h5
+*.ckpt
+*.safetensors
+checkpoint-*/
+final_model/
+
+# ── PYTHON CACHE (compiled junk, never push) ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# ── LOGS (runtime generated, not needed) ──
+logs/
+*.log
+*.json
+predictions.json
+
+# ── DATASET (large CSV files) ──
+dataset/
+*.csv
+
+# ── ENVIRONMENT & SECRETS ──
+.env
+.env.local
+.env.*
+venv/
+env/
+.venv/
+*.env
+
+# ── ZIP FILES ──
+*.zip
+*.tar.gz
+*.rar
+
+# ── VS CODE SETTINGS (personal, not for repo) ──
+.vscode/
+
+# ── OS GARBAGE ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── JUPYTER NOTEBOOKS CHECKPOINTS ──
+.ipynb_checkpoints/
+
+# ── PYTEST & COVERAGE ──
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── BUILD ARTIFACTS ──
+dist/
+build/
+*.egg-info/

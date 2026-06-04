@@ -1,0 +1,47 @@
+# Node modules
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# Environment files — NEVER commit real credentials
+.env
+*.env
+!.env.example
+backend/.env
+!backend/.env.example
+ai_service/.env
+frontend/.env
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Docker
+.dockerignore
+
+# Vite
+/.vite
+
+# ML model artifacts (large binary files — stored in model registry, not git)
+ai_service/model/*.pkl
+ai_service/model/*.pt
+ai_service/model/*.bin
+ai_service/model/saved_model/
+
+# Vite local env overrides
+frontend/.env.local
+frontend/.env.*.local
+backend/.env.local

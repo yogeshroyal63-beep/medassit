@@ -1,6 +1,9 @@
 import os
 os.environ.pop("SSL_CERT_FILE", None)
 
+import argparse
+import os
+
 import pandas as pd
 import torch
 import joblib
@@ -8,6 +11,7 @@ import joblib
 from datasets import Dataset
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from transformers import TrainingArguments, Trainer, EarlyStoppingCallback
+from transformers.trainer_utils import get_last_checkpoint
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -15,17 +19,29 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 
 # -----------------------------------------------
-# CONFIG
+# CLI / CONFIG
 # -----------------------------------------------
 
-MODEL_NAME = "monologg/biobert_v1.1_pubmed"
-DATA_PATH  = "dataset/triage_dataset.csv"
+parser = argparse.ArgumentParser(description="Train or resume the MedAssist triage model.")
+parser.add_argument("--output_dir", default="saved_model", help="Directory to save model checkpoints")
+parser.add_argument("--resume_from_checkpoint", default=None,
+                    help="Path to checkpoint to resume from, or 'latest' to resume from the latest checkpoint")
+parser.add_argument("--epochs", type=int, default=4, help="Number of training epochs")
+parser.add_argument("--batch_size", type=int, default=16, help="Training batch size")
+parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate")
+parser.add_argument("--max_length", type=int, default=128, help="Max token length")
+parser.add_argument("--model_name", default="monologg/biobert_v1.1_pubmed", help="Pretrained model name")
+parser.add_argument("--data_path", default="dataset/triage_dataset.csv", help="Path to training dataset")
+args = parser.parse_args()
+
+MODEL_NAME = args.model_name
+DATA_PATH = args.data_path
 
 # RTX 3050 optimized settings
-BATCH_SIZE   = 16       # Increased from 8 — RTX 3050 can handle it
-MAX_LENGTH   = 128
-EPOCHS       = 4        # Increased from 3 for better accuracy
-LEARNING_RATE = 2e-5
+BATCH_SIZE = args.batch_size
+MAX_LENGTH = args.max_length
+EPOCHS = args.epochs
+LEARNING_RATE = args.learning_rate
 
 # -----------------------------------------------
 # CUDA Check
@@ -57,8 +73,8 @@ print(df['label'].value_counts())
 label_encoder = LabelEncoder()
 df["label"] = label_encoder.fit_transform(df["label"])
 
-os.makedirs("saved_model", exist_ok=True)
-joblib.dump(label_encoder, "saved_model/label_encoder.pkl")
+os.makedirs(args.output_dir, exist_ok=True)
+joblib.dump(label_encoder, os.path.join(args.output_dir, "label_encoder.pkl"))
 print(f"Label encoder saved. Classes: {list(label_encoder.classes_)}")
 
 
@@ -242,7 +258,15 @@ print(f"  Device: {device}")
 print(f"  fp16: {use_cuda}")
 print("=" * 50)
 
-trainer.train()
+resume_checkpoint = None
+if args.resume_from_checkpoint:
+    if args.resume_from_checkpoint.lower() == "latest":
+        resume_checkpoint = get_last_checkpoint(args.output_dir)
+    else:
+        resume_checkpoint = args.resume_from_checkpoint
+    print(f"Resuming from checkpoint: {resume_checkpoint}")
+
+trainer.train(resume_from_checkpoint=resume_checkpoint)
 
 
 # -----------------------------------------------
@@ -260,8 +284,9 @@ for k, v in results.items():
 # Save Final Model
 # -----------------------------------------------
 
-trainer.save_model("saved_model/final_model")
-tokenizer.save_pretrained("saved_model/final_model")
+final_model_dir = os.path.join(args.output_dir, "final_model")
+trainer.save_model(final_model_dir)
+tokenizer.save_pretrained(final_model_dir)
 
 print("\n" + "=" * 50)
 print("Training completed successfully!")

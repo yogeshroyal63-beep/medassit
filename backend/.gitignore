@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Environment — NEVER commit real credentials
+.env
+.env.local
+.env.*.local
+# Allow the example template
+!.env.example
+
+# Build output
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/

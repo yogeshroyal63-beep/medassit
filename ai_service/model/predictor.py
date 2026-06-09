@@ -1,19 +1,17 @@
 """
 predictor.py
 ============
-Loads the fine-tuned BioBERT model for symptom classification.
+Loads the fine-tuned BioBERT model from HuggingFace Hub for symptom classification.
 
-If the model has not been trained yet (saved_model/final_model/ is absent),
-the module falls back to a rule-based keyword predictor so the service
-remains fully functional. The `MODEL_READY` flag lets the API surface
-this status to callers.
+If the model fails to load, falls back to a rule-based keyword predictor so
+the service remains fully functional. The `MODEL_READY` flag lets the API
+surface this status to callers.
 """
 
 import os
 import joblib
 
-MODEL_PATH         = "saved_model/final_model"
-LABEL_ENCODER_PATH = "saved_model/label_encoder.pkl"
+HF_MODEL_ID        = "yogeshroyal63/medassist-bert"
 
 os.environ.setdefault("TRANSFORMERS_NO_TORCHVISION", "1")
 
@@ -22,35 +20,34 @@ tokenizer          = None
 model              = None
 label_encoder      = None
 _load_attempted    = False
-MODEL_READY        = False          # exposed to routes.py for /health endpoint
+MODEL_READY        = False
 
 
 def _bootstrap():
-    """Try to load the BERT model once. Sets MODEL_READY on success."""
+    """Try to load the BERT model from HuggingFace once. Sets MODEL_READY on success."""
     global tokenizer, model, label_encoder, _load_attempted, MODEL_READY
 
     if _load_attempted:
         return MODEL_READY
     _load_attempted = True
 
-    if not os.path.isdir(MODEL_PATH):
-        print(
-            f"[Predictor] '{MODEL_PATH}' not found — running in rule-based fallback mode. "
-            "Train the model and restart to enable BERT inference."
-        )
-        return False
-
     try:
         import torch
         import torch.nn.functional as F
         from transformers import AutoTokenizer, AutoModelForSequenceClassification
+        from huggingface_hub import hf_hub_download
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"[Predictor] Loading BERT model on {device} …")
+        device    = "cuda" if torch.cuda.is_available() else "cpu"
+        hf_token  = os.environ.get("HF_TOKEN")
 
-        tokenizer    = AutoTokenizer.from_pretrained(MODEL_PATH)
-        model        = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
-        label_encoder = joblib.load(LABEL_ENCODER_PATH)
+        print(f"[Predictor] Loading BERT model from HuggingFace on {device} …")
+
+        tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_ID, token=hf_token)
+        model     = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID, token=hf_token)
+
+        pkl_path      = hf_hub_download(repo_id=HF_MODEL_ID, filename="label_encoder.pkl", token=hf_token)
+        label_encoder = joblib.load(pkl_path)
+
         model.to(device)
         model.eval()
         MODEL_READY = True
@@ -66,11 +63,6 @@ def _fallback_predictions(symptoms: str) -> list:
     """
     Simple keyword-based fallback used when the BERT model is not available.
     Returns the same structure as the BERT predictor so downstream code is unchanged.
-
-    FIXED: condition names now use CamelCase to match SEVERITY_MAP keys in
-    severity_rules.py (e.g. "ViralFever" not "Viral Fever").  The mismatch
-    previously caused get_severity() to always return "unknown" for every
-    fallback result.
     """
     text = (symptoms or "").lower()
 
@@ -90,9 +82,9 @@ def _fallback_predictions(symptoms: str) -> list:
         top = "Flu"
 
     return [
-        {"condition": top,                        "confidence": 0.40},
-        {"condition": "CommonCold",               "confidence": 0.35},
-        {"condition": "Flu",                      "confidence": 0.25},
+        {"condition": top,              "confidence": 0.40},
+        {"condition": "CommonCold",     "confidence": 0.35},
+        {"condition": "Flu",            "confidence": 0.25},
     ]
 
 

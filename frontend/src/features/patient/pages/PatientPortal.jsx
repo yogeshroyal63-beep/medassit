@@ -30,7 +30,7 @@ const PatientPortal = () => {
     try {
       const [doctorsRes, appointmentsRes] = await Promise.all([api.get("/doctors"), api.get("/appointments/my")]);
       setDoctors(doctorsRes.data);
-      setAppointments(appointmentsRes.data);
+      setAppointments(appointmentsRes.data?.data ?? []);
     } catch { setError("Failed to load patient dashboard data."); }
     finally { setLoading(false); }
   };

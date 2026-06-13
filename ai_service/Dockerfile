@@ -20,9 +20,9 @@ import os; \
 from transformers import AutoModelForSequenceClassification, AutoTokenizer; \
 from huggingface_hub import hf_hub_download; \
 token = os.environ.get('HF_TOKEN'); \
-AutoModelForSequenceClassification.from_pretrained('yogeshroyal63/medassist-bert', token=token); \
-AutoTokenizer.from_pretrained('yogeshroyal63/medassist-bert', token=token); \
-hf_hub_download(repo_id='yogeshroyal63/medassist-bert', filename='label_encoder.pkl', token=token)"
+AutoModelForSequenceClassification.from_pretrained('saiyogesh/medassist-bert', token=token); \
+AutoTokenizer.from_pretrained('saiyogesh/medassist-bert', token=token); \
+hf_hub_download(repo_id='saiyogesh/medassist-bert', filename='label_encoder.pkl', token=token)"
 
 COPY app.py ./
 COPY api/ ./api/

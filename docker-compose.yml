@@ -43,6 +43,7 @@ services:
       - PYTHONPATH=/app
       - BACKEND_URL=http://backend:5001
       - AI_SERVICE_SECRET=${AI_SERVICE_SECRET}
+      - HF_TOKEN=${HF_TOKEN}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s

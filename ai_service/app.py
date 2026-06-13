@@ -10,7 +10,6 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 BASE_DIR = os.path.dirname(__file__)
 MODEL_DIR = "saiyogesh/medassist-bert"
-LABEL_ENCODER_PATH = os.path.join(BASE_DIR, "label_encoder.pkl")
 DEFAULT_SECRET = "medassist_internal_CHANGE_IN_PRODUCTION"
 
 
@@ -33,15 +32,12 @@ def load_model():
     model.eval()
     return tokenizer, model
 
+
 def load_label_encoder():
     from huggingface_hub import hf_hub_download
     token = os.getenv("HF_TOKEN")
     path = hf_hub_download(repo_id="saiyogesh/medassist-bert", filename="label_encoder.pkl", token=token)
     return joblib.load(path)
-
-
-def load_label_encoder():
-    return joblib.load(LABEL_ENCODER_PATH)
 
 
 tokenizer, model = load_model()

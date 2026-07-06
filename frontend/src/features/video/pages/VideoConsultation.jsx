@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+﻿import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import VideoContainer from "../components/VideoContainer";
@@ -8,9 +8,9 @@ import api from "../../../shared/utils/api";
 import toast from "react-hot-toast";
 import { Video, Copy } from "lucide-react";
 
-const BACKEND_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api").replace("/api", "");
+const BACKEND_URL = import.meta.env.VITE_WS_URL || "http://localhost:5001";
 // NOTE: This component only supports 1:1 peer connections (peers[0]).
-// Group calls are not implemented — this is a known limitation, not a bug.
+// Group calls are not implemented â€” this is a known limitation, not a bug.
 const ICE_SERVERS = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] };
 
 const VideoConsultation = () => {
@@ -59,7 +59,7 @@ const VideoConsultation = () => {
         await pc.setLocalDescription(offer);
         socket.emit("offer", { to: peerId, offer });
       });
-      socket.on("peer-joined", () => toast("Participant joined", { icon: "👋" }));
+      socket.on("peer-joined", () => toast("Participant joined", { icon: "ðŸ‘‹" }));
       socket.on("offer", async ({ from, offer }) => {
         const pc = createPeerConnection(stream, socket);
         pc._targetPeerId = from; pcRef.current = pc;
@@ -81,7 +81,7 @@ const VideoConsultation = () => {
   const handleToggleVideo = () => { if (!localStream) return; localStream.getVideoTracks().forEach(t => { t.enabled = videoOff; }); setVideoOff(v => !v); };
   const handleHangUp = () => { localStream?.getTracks().forEach(t => t.stop()); pcRef.current?.close(); socketRef.current?.disconnect(); window.history.back(); };
 
-  if (loading) return <Loader label="Connecting to video room…" />;
+  if (loading) return <Loader label="Connecting to video roomâ€¦" />;
 
   return (
     <div>
@@ -93,7 +93,7 @@ const VideoConsultation = () => {
           <h1 className="page-title">Video Consultation</h1>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: peerConnected ? "#22c55e" : "#94a3b8", display: "inline-block" }} />
-            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{peerConnected ? "Connected" : "Waiting for participant…"}</span>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{peerConnected ? "Connected" : "Waiting for participantâ€¦"}</span>
             {roomInfo && (
               <button onClick={() => { navigator.clipboard.writeText(roomInfo.roomId); toast.success("Room ID copied"); }}
                 style={{ marginLeft: "6px", display: "flex", alignItems: "center", gap: "4px", padding: "2px 8px", borderRadius: "6px", background: "var(--surface)", border: "1px solid var(--border)", fontSize: "11px", color: "var(--text-muted)", cursor: "pointer" }}>
@@ -111,7 +111,7 @@ const VideoConsultation = () => {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.75rem", borderRadius: "14px", background: "#0f172a", color: "rgba(255,255,255,0.4)" }}>
             <div style={{ width: "40px", height: "40px", borderRadius: "50%", border: "3px solid rgba(255,255,255,0.15)", borderTopColor: "rgba(255,255,255,0.5)", animation: "spin 1s linear infinite" }} />
-            <p style={{ margin: 0, fontSize: "13px" }}>Waiting for participant…</p>
+            <p style={{ margin: 0, fontSize: "13px" }}>Waiting for participantâ€¦</p>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import axios from "axios";
+﻿import axios from "axios";
 
 const TOKEN_KEY   = "medassist_token";
 const REFRESH_KEY = "medassist_refresh";
@@ -8,7 +8,7 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "/api/v1",
 });
 
-// ── Request: attach access token ──────────────────────────────────────────────
+// â”€â”€ Request: attach access token â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
@@ -18,7 +18,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response: silently refresh on 401, then retry once ───────────────────────
+// â”€â”€ Response: silently refresh on 401, then retry once â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let isRefreshing = false;
 let refreshQueue = []; // queued requests waiting for a new token
 
@@ -48,7 +48,7 @@ api.interceptors.response.use(
 
     const refreshToken = localStorage.getItem(REFRESH_KEY);
 
-    // No refresh token stored — go straight to login
+    // No refresh token stored â€” go straight to login
     if (!refreshToken) {
       _clearAndRedirect();
       return Promise.reject(error);
@@ -68,7 +68,7 @@ api.interceptors.response.use(
     isRefreshing    = true;
 
     try {
-      const { data } = await axios.post("/api/v1/auth/refresh", { refreshToken });
+      const { data } = await axios.post(${api.defaults.baseURL}/auth/refresh, { refreshToken });
       const newAt = data.accessToken || data.token;
       const newRt = data.refreshToken;
 

@@ -46,12 +46,18 @@ async function runTriage(user, body, requestId) {
   const lowerSymptoms = symptoms.toLowerCase();
   const detectedEmergency = emergencyKeywords.some((kw) => lowerSymptoms.includes(kw));
   if (detectedEmergency) {
+    const emergencyMessage = "This sounds like a medical emergency. Please call emergency services (108/112) or go to the nearest emergency room immediately.";
     const emergencyResult = {
       status: "emergency",
       top_condition: "Possible Emergency",
       severity: "critical",
       predictions: [],
-      advice: "This sounds like a medical emergency. Please call emergency services (108/112) or go to the nearest emergency room immediately.",
+      advice: {
+        action: "Call emergency services or go to the nearest ER NOW",
+        urgency: "Immediate - do not wait",
+        home_care: emergencyMessage,
+      },
+      message: emergencyMessage,
       isEmergency: true,
     };
     if (mongoose.Types.ObjectId.isValid(user.id)) {

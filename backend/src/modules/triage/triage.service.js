@@ -19,6 +19,46 @@ function sanitizeSymptoms(raw) {
     .trim();
 }
 
+/**
+ * Render's free tier spins down the AI service after ~15 min idle. The first
+ * request after that can take 30-50s to respond while it boots, and may fail
+ * outright with ECONNREFUSED/502/503 while the container is still starting.
+ * Retry transient failures with increasing timeouts instead of surfacing a
+ * hard error on the user's first request of the day.
+ */
+const TRANSIENT_CODES  = new Set(["ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND"]);
+const TRANSIENT_STATUS = new Set([502, 503, 504]);
+const RETRY_TIMEOUTS_MS = [8000, 20000, 30000]; // escalating per attempt
+const RETRY_DELAYS_MS   = [0, 1500, 3000];
+
+function isTransient(err) {
+  if (TRANSIENT_CODES.has(err.code)) return true;
+  if (err.response && TRANSIENT_STATUS.has(err.response.status)) return true;
+  return false;
+}
+
+async function callAiService(symptoms, age, requestId) {
+  let lastErr;
+  for (let attempt = 0; attempt < RETRY_TIMEOUTS_MS.length; attempt++) {
+    if (RETRY_DELAYS_MS[attempt]) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+    }
+    try {
+      return await axios.post(
+        `${aiServiceUrl}/triage`,
+        { symptoms, age: age ?? null },
+        { timeout: RETRY_TIMEOUTS_MS[attempt], headers: { "x-internal-secret": aiServiceSecret, "x-request-id": requestId || "" } }
+      );
+    } catch (err) {
+      lastErr = err;
+      const isLastAttempt = attempt === RETRY_TIMEOUTS_MS.length - 1;
+      if (isLastAttempt || !isTransient(err)) throw err;
+      // else: transient failure, likely a cold start — loop and retry with a longer timeout
+    }
+  }
+  throw lastErr;
+}
+
 async function runTriage(user, body, requestId) {
   const rawSymptoms = String(body.symptoms || "").trim();
   if (!rawSymptoms) {
@@ -71,11 +111,7 @@ async function runTriage(user, body, requestId) {
     return emergencyResult;
   }
 
-  const aiResp = await axios.post(
-    `${aiServiceUrl}/triage`,
-    { symptoms, age: body.age ?? null },
-    { timeout: 15000, headers: { "x-internal-secret": aiServiceSecret, "x-request-id": requestId || "" } }
-  );
+  const aiResp = await callAiService(symptoms, body.age, requestId);
   const ai = aiResp.data || {};
 
   // Validate the AI response shape so we never silently save empty records

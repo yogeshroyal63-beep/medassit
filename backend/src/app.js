@@ -20,6 +20,7 @@ const triageRoutes      = require("./modules/triage/triage.routes");
 const messageRoutes     = require("./modules/messaging/message.routes");
 const videoRoutes       = require("./modules/video/video.routes");
 const adminRoutes       = require("./modules/admin/admin.routes");
+const vitalRoutes       = require("./modules/vitals/vital.routes");
 
 const app = express();
 
@@ -66,6 +67,7 @@ v1.use("/triage",       apiLimiter, triageRoutes);
 v1.use("/messages",     apiLimiter, messageRoutes);
 v1.use("/video",        apiLimiter, videoRoutes);
 v1.use("/admin",        apiLimiter, adminRoutes);
+v1.use("/vitals",       apiLimiter, vitalRoutes);
 
 app.use("/api/v1", v1);
 

@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Menu, X, Sun, Moon } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
 import { useTheme } from "../hooks/useTheme";
 import Sidebar from "./Sidebar";
 
 const AppShell = () => {
-  const { user }               = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -56,9 +54,6 @@ const AppShell = () => {
           <div>
             <p style={{ margin: 0, fontSize: "0.7rem", color: "var(--text-subtle)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               MedAssist · Care Intelligence
-            </p>
-            <p style={{ margin: 0, fontSize: "1rem", fontWeight: 600, color: "var(--text)", fontFamily: "'Fraunces', serif" }}>
-              Welcome back, {user?.name?.split(" ")[0] || "User"}
             </p>
           </div>
 

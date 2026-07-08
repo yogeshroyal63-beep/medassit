@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import api from "../../../shared/utils/api";
 import toast from "react-hot-toast";
@@ -6,6 +7,7 @@ import { User } from "lucide-react";
 
 const Profile = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", phone: "", age: "", gender: "", bloodGroup: "", address: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -21,7 +23,11 @@ const Profile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault(); setSaving(true);
-    try { await api.put("/users/me", form); toast.success("Profile updated"); }
+    try {
+      await api.put("/users/me", form);
+      toast.success("Profile updated");
+      navigate("/patient/dashboard");
+    }
     catch { toast.error("Could not save profile"); }
     finally { setSaving(false); }
   };

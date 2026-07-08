@@ -215,7 +215,7 @@ h1, h2, h3 { font-family: "Fraunces", serif; line-height: 1.25; }
 /* ─── Stat grid — responsive ─── */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
@@ -286,6 +286,20 @@ h1, h2, h3 { font-family: "Fraunces", serif; line-height: 1.25; }
 @keyframes pulse-ring { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 .fade-up { animation: fadeUp 0.35s ease both; }
 
+/* ─── Dashboard two-column layout (main content + quick-actions rail) ─── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Quick action button hover ─── */
+.quick-action-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+
 /* ─── Utility ─── */
 .muted { color: var(--text-muted); }
 .subtle { color: var(--text-subtle); }
@@ -306,7 +320,7 @@ h1, h2, h3 { font-family: "Fraunces", serif; line-height: 1.25; }
   .app-content { padding: 1.5rem; }
 
   .stat-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }
 }
 

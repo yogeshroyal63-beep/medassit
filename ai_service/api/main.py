@@ -1,12 +1,28 @@
 import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
+from api.ops_routes import router as ops_router
+from api.warmup import start_warmup
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Start loading the model in the background as soon as the container boots,
+    # so it overlaps with the warm-up request that woke the container.
+    # Set MEDASSIST_EAGER_LOAD=0 to disable (tests, CI).
+    if os.getenv("MEDASSIST_EAGER_LOAD", "1") == "1":
+        start_warmup()
+    yield
+
 
 app = FastAPI(
     title="MedAssist AI Triage Engine",
     description="AI-powered healthcare triage classifier — BERT + Rule-based hybrid",
-    version="2.0"
+    version="2.0",
+    lifespan=lifespan,
 )
 
 allowed_origins = [
@@ -24,6 +40,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(ops_router)
 
 
 @app.get("/")

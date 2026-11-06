@@ -15,14 +15,17 @@ RUN pip install --no-cache-dir huggingface_hub
 
 # Bake model into Docker image at build time so restarts are instant
 ARG HF_TOKEN
+ARG HF_MODEL_ID=saiyogesh/medassist-bert
+ENV HF_MODEL_ID=${HF_MODEL_ID}
 RUN HF_TOKEN=${HF_TOKEN} python -c "\
 import os; \
 from transformers import AutoModelForSequenceClassification, AutoTokenizer; \
 from huggingface_hub import hf_hub_download; \
-token = os.environ.get('HF_TOKEN'); \
-AutoModelForSequenceClassification.from_pretrained('saiyogesh/medassist-bert', token=token); \
-AutoTokenizer.from_pretrained('saiyogesh/medassist-bert', token=token); \
-hf_hub_download(repo_id='saiyogesh/medassist-bert', filename='label_encoder.pkl', token=token)"
+token = os.environ.get('HF_TOKEN') or None; \
+mid = os.environ['HF_MODEL_ID']; \
+AutoModelForSequenceClassification.from_pretrained(mid, token=token); \
+AutoTokenizer.from_pretrained(mid, token=token); \
+hf_hub_download(repo_id=mid, filename='label_encoder.pkl', token=token)"
 
 COPY api/ ./api/
 COPY model/ ./model/

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, Heart } from "lucide-react";
 import { useAuth } from "../../../shared/hooks/useAuth";
 import { useAuth0Login } from "../../../shared/hooks/useAuth0Login";
 import { authService } from "../auth.service";
 import toast from "react-hot-toast";
+import { warmUpServices } from "../../../shared/utils/warmup";
 
 const Login = () => {
   const navigate  = useNavigate();
@@ -15,6 +16,11 @@ const Login = () => {
   const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading,      setLoading]      = useState(false);
+
+  // Wake the backend and the AI model in the background (no UI). By the time the
+  // user finishes typing and signs in, the first symptom check is not a cold start.
+  useEffect(() => { warmUpServices(); }, []);
+  useEffect(() => { if (email || password) warmUpServices(); }, [email, password]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

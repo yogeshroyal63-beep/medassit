@@ -1,0 +1,30 @@
+{
+  "name": "MedAssist symptom triage",
+  "version": "2.0",
+  "summary": "A hybrid triage assistant: a fine-tuned BioBERT classifier suggests likely conditions, while rule engines handle emergencies, mental-health crises, severity and specialty routing.",
+  "architecture": [
+    "Input validation and sanitisation",
+    "Intent detection (greeting, medicine query, crisis, symptoms)",
+    "Rule-based emergency check (runs before the model)",
+    "BioBERT classifier (top-3 conditions with confidence)",
+    "Severity, specialty and care-advice rules"
+  ],
+  "training_data": {
+    "source": "Synthetic symptom descriptions generated from symptom lists and sentence templates",
+    "note": "No real patient data was used."
+  },
+  "evaluation_status": "pending",
+  "metrics": null,
+  "intended_use": "Educational demo of an AI triage workflow. It is not a medical device and is not clinically validated.",
+  "limitations": [
+    "Trained on synthetic text, so real-world accuracy is unknown until it is tested on independent data.",
+    "Covers a fixed list of conditions; anything outside it will be mapped to the closest one.",
+    "English only. Not tested for demographic fairness.",
+    "Explanations show what the classifier reacted to, not medical causation."
+  ],
+  "safety": [
+    "Emergency patterns are detected by rules before the model runs.",
+    "Low-confidence predictions return a prompt to see a clinician instead of a diagnosis.",
+    "Every result carries a disclaimer to consult a qualified healthcare provider."
+  ]
+}

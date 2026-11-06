@@ -21,6 +21,8 @@ const messageRoutes     = require("./modules/messaging/message.routes");
 const videoRoutes       = require("./modules/video/video.routes");
 const adminRoutes       = require("./modules/admin/admin.routes");
 const vitalRoutes       = require("./modules/vitals/vital.routes");
+const warmupRoutes      = require("./modules/warmup/warmup.routes");
+const modelRoutes       = require("./modules/model/model.routes");
 
 const app = express();
 
@@ -68,6 +70,8 @@ v1.use("/messages",     apiLimiter, messageRoutes);
 v1.use("/video",        apiLimiter, videoRoutes);
 v1.use("/admin",        apiLimiter, adminRoutes);
 v1.use("/vitals",       apiLimiter, vitalRoutes);
+v1.use("/warmup",       apiLimiter, warmupRoutes); // public: wakes the AI service in the background
+v1.use("/model",        apiLimiter, modelRoutes);  // public: model card + explainability demo
 
 app.use("/api/v1", v1);
 

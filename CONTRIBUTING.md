@@ -29,7 +29,7 @@ npm run dev                 # Vite on port 5173
 # 4. AI service (new terminal)
 cd ai_service
 pip install -r requirements.txt
-python scripts/download_model.py   # cold-start pretrained checkpoint
+# The model loads from Hugging Face on first use (set HF_MODEL_ID / HF_TOKEN if needed)
 python run.py                      # FastAPI on port 8000
 ```
 
@@ -60,7 +60,7 @@ medassist/
 └── ai_service/        Python FastAPI — BioBERT triage, spell correction
     ├── api/           Routes, schemas, auth
     ├── model/         Triage engine, medicine lookup, severity rules
-    └── training/      Dataset generation + fine-tuning script
+    └── (training lives in ml/: Kaggle notebook + dataset generator)
 ```
 
 ### Key design decisions

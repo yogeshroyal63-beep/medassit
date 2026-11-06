@@ -1,62 +1,88 @@
 """
 predictor.py
 ============
-Loads the fine-tuned BioBERT model from HuggingFace Hub for symptom classification.
+Loads the fine-tuned BioBERT triage model from the Hugging Face Hub and runs
+symptom classification.
 
-If the model fails to load, falls back to a rule-based keyword predictor so
-the service remains fully functional. The `MODEL_READY` flag lets the API
-surface this status to callers.
+If the model cannot be loaded the service stays up and answers with a simple
+keyword fallback, so callers always get the same response shape. The
+`MODEL_READY` flag tells the API which mode is active.
+
+Changes in this version
+-----------------------
+* The model id is configurable: set HF_MODEL_ID (default: saiyogesh/medassist-bert).
+* Loading is guarded by a lock. A request that arrives while the model is still
+  loading now waits for it instead of silently receiving the keyword fallback.
+* `reset_for_retry()` lets the warm-up manager try again after a failed load.
+* `class_probabilities()` returns the probability of one class for many texts
+  (used by the explainability endpoint).
 """
 
 import os
+import threading
+
 import joblib
 
-HF_MODEL_ID        = "saiyogesh/medassist-bert"
+HF_MODEL_ID = os.getenv("HF_MODEL_ID", "saiyogesh/medassist-bert")
 
 os.environ.setdefault("TRANSFORMERS_NO_TORCHVISION", "1")
 
-# ?????? Module-level state ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-tokenizer          = None
-model              = None
-label_encoder      = None
-_load_attempted    = False
-MODEL_READY        = False
+# -- Module-level state --------------------------------------------------------
+tokenizer = None
+model = None
+label_encoder = None
+_load_attempted = False
+MODEL_READY = False
+_load_lock = threading.Lock()
+LOAD_ERROR = None
 
 
 def _bootstrap():
-    """Try to load the BERT model from HuggingFace once. Sets MODEL_READY on success."""
-    global tokenizer, model, label_encoder, _load_attempted, MODEL_READY
+    """Load the BERT model once. Thread-safe. Sets MODEL_READY on success."""
+    global tokenizer, model, label_encoder, _load_attempted, MODEL_READY, LOAD_ERROR
 
-    if _load_attempted:
-        return MODEL_READY
-    _load_attempted = True
+    with _load_lock:
+        if _load_attempted:
+            return MODEL_READY
+        _load_attempted = True
 
-    try:
-        import torch
-        import torch.nn.functional as F
-        from transformers import AutoTokenizer, AutoModelForSequenceClassification
-        from huggingface_hub import hf_hub_download
+        try:
+            import torch
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification
+            from huggingface_hub import hf_hub_download
 
-        device    = "cuda" if torch.cuda.is_available() else "cpu"
-        hf_token  = os.environ.get("HF_TOKEN")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            hf_token = os.environ.get("HF_TOKEN") or None
 
-        print(f"[Predictor] Loading BERT model from HuggingFace on {device} ???")
+            print(f"[Predictor] Loading {HF_MODEL_ID} on {device} ...")
 
-        tokenizer = AutoTokenizer.from_pretrained(HF_MODEL_ID, token=hf_token)
-        model     = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID, token=hf_token)
+            tok = AutoTokenizer.from_pretrained(HF_MODEL_ID, token=hf_token)
+            mdl = AutoModelForSequenceClassification.from_pretrained(HF_MODEL_ID, token=hf_token)
 
-        pkl_path      = hf_hub_download(repo_id=HF_MODEL_ID, filename="label_encoder.pkl", token=hf_token)
-        label_encoder = joblib.load(pkl_path)
+            pkl_path = hf_hub_download(repo_id=HF_MODEL_ID, filename="label_encoder.pkl", token=hf_token)
+            enc = joblib.load(pkl_path)
 
-        model.to(device)
-        model.eval()
-        MODEL_READY = True
-        print("[Predictor] BERT model loaded successfully.")
-        return True
+            mdl.to(device)
+            mdl.eval()
 
-    except Exception as exc:
-        print(f"[Predictor] Failed to load BERT model: {exc} ??? using rule-based fallback.")
-        return False
+            tokenizer, model, label_encoder = tok, mdl, enc
+            MODEL_READY = True
+            LOAD_ERROR = None
+            print("[Predictor] BERT model loaded successfully.")
+            return True
+
+        except Exception as exc:  # noqa: BLE001 - any failure falls back to rules
+            LOAD_ERROR = f"{type(exc).__name__}: {exc}"[:300]
+            print(f"[Predictor] Failed to load BERT model: {LOAD_ERROR} -> using rule-based fallback.")
+            return False
+
+
+def reset_for_retry():
+    """Allow _bootstrap() to try again (used after a failed load)."""
+    global _load_attempted
+    with _load_lock:
+        if not MODEL_READY:
+            _load_attempted = False
 
 
 def _fallback_predictions(symptoms: str) -> list:
@@ -82,9 +108,9 @@ def _fallback_predictions(symptoms: str) -> list:
         top = "Flu"
 
     return [
-        {"condition": top,              "confidence": 0.40},
-        {"condition": "CommonCold",     "confidence": 0.35},
-        {"condition": "Flu",            "confidence": 0.25},
+        {"condition": top,          "confidence": 0.40},
+        {"condition": "CommonCold", "confidence": 0.35},
+        {"condition": "Flu",        "confidence": 0.25},
     ]
 
 
@@ -124,3 +150,41 @@ def predict(symptoms: str) -> list:
         }
         for prob, idx in zip(top_probs[0], top_indices[0])
     ]
+
+
+def class_probabilities(texts: list, condition: str) -> list:
+    """
+    Probability of `condition` for each text in `texts`.
+    BERT mode: one batched forward pass. Fallback mode: the keyword predictor's
+    confidence for that condition (0.0 if it is not in its top 3).
+    """
+    if not _bootstrap():
+        out = []
+        for t in texts:
+            conf = 0.0
+            for p in _fallback_predictions(t):
+                if p["condition"] == condition:
+                    conf = p["confidence"]
+                    break
+            out.append(conf)
+        return out
+
+    import torch
+    import torch.nn.functional as F
+
+    device = next(model.parameters()).device
+    idx = int(label_encoder.transform([condition])[0])
+
+    inputs = tokenizer(
+        list(texts),
+        return_tensors="pt",
+        truncation=True,
+        padding=True,
+        max_length=128,
+    )
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
+    with torch.no_grad():
+        probs = F.softmax(model(**inputs).logits, dim=1)[:, idx]
+
+    return [float(p) for p in probs.cpu().tolist()]

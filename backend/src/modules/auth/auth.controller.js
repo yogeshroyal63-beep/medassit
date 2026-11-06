@@ -1,4 +1,5 @@
 const authService = require("./auth.service");
+const { warmAi } = require("../warmup/warmup.service");
 
 function noStore(res) {
   res.setHeader("Cache-Control", "no-store");
@@ -15,6 +16,7 @@ async function register(req, res, next) {
 async function login(req, res, next) {
   try {
     const result = await authService.login(req.body);
+    warmAi(); // wake the AI service in the background; never blocks the login response
     noStore(res);
     res.json(result);
   } catch (e) { next(e); }

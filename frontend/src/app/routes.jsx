@@ -16,6 +16,9 @@ import Settings       from "../features/patient/pages/Settings.jsx";
 // Triage
 import SmartCheck from "../features/triage/pages/SmartCheck.jsx";
 
+// Public AI transparency page (model card + explainability demo)
+import ModelCard from "../features/model/pages/ModelCard.jsx";
+
 // Doctors
 import FindDoctor    from "../features/doctors/pages/FindDoctor.jsx";
 import DoctorPortal  from "../features/doctors/pages/DoctorPortal.jsx";
@@ -103,6 +106,9 @@ const AppRoutes = () => {
       <Route path="/signup"         element={<PublicOnlyRoute><Signup /></PublicOnlyRoute>} />
       <Route path="/role"           element={<Navigate to="/role-selection" replace />} />
       <Route path="/role-selection" element={<PublicOnlyRoute><RoleSelection /></PublicOnlyRoute>} />
+
+      {/* Public AI model card + explainability demo (no auth, not in navigation) */}
+      <Route path="/model-card" element={<ModelCard />} />
 
       {/* Auth0 social-login callback — public, no auth required */}
       <Route path="/auth0/callback" element={<Auth0Callback />} />

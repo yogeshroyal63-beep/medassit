@@ -33,7 +33,11 @@ services:
       start_period: 5s
 
   ai-service:
-    build: ./ai_service
+    build:
+      context: ./ai_service
+      args:
+        HF_TOKEN: ${HF_TOKEN:-}
+        HF_MODEL_ID: ${HF_MODEL_ID:-saiyogesh/medassist-bert}
     restart: unless-stopped
     # Port intentionally NOT exposed to the host — only the backend container
     # needs access to the AI service. Expose only for local dev debugging.
@@ -44,6 +48,7 @@ services:
       - BACKEND_URL=http://backend:5001
       - AI_SERVICE_SECRET=${AI_SERVICE_SECRET}
       - HF_TOKEN=${HF_TOKEN}
+      - HF_MODEL_ID=${HF_MODEL_ID:-saiyogesh/medassist-bert}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s

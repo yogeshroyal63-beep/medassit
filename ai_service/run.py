@@ -1,31 +1,19 @@
 import os
-import sys
 
 
-def _warn_if_model_missing():
+def _show_model_source():
     """
-    Warn (but do NOT exit) if the trained model files are absent.
-    The service is designed to run in rule-based fallback mode without a model —
-    exiting here defeats that design.  A warning is sufficient.
+    The BERT model is no longer trained or stored locally. It is loaded from the
+    Hugging Face Hub (HF_MODEL_ID, default saiyogesh/medassist-bert) and trained on
+    Kaggle using ml/kaggle_train_medassist.ipynb. If it cannot be loaded, the
+    service stays up in rule-based fallback mode.
     """
-    base = os.path.dirname(os.path.abspath(__file__))
-    model_dir = os.path.join(base, "saved_model", "final_model")
-    encoder_path = os.path.join(base, "saved_model", "label_encoder.pkl")
-
-    missing = []
-    if not os.path.isdir(model_dir):
-        missing.append(model_dir)
-    if not os.path.isfile(encoder_path):
-        missing.append(encoder_path)
-
-    if missing:
-        print("WARNING: Trained BERT model files not found. Starting in rule-based fallback mode.\n")
-        print("To enable BERT inference, place the trained model here:")
-        for path in missing:
-            print(f"  - {path}")
-        print()
+    model_id = os.getenv("HF_MODEL_ID", "saiyogesh/medassist-bert")
+    print(f"Model source: Hugging Face Hub -> {model_id}")
+    if not os.getenv("HF_TOKEN"):
+        print("HF_TOKEN is not set. That is fine for a public model; set it for a private one.\n")
 
 
 if __name__ == "__main__":
-    _warn_if_model_missing()   # warn only — do NOT sys.exit
+    _show_model_source()
     os.system("uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload")

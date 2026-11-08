@@ -2,11 +2,14 @@
  * AI-service warm-up orchestration.
  *
  * Free-tier hosts put idle services to sleep. Waking the backend and the AI
- * service (container boot + BERT load) takes 30-60 s. Instead of letting the
- * first triage request pay for it, the frontend pings GET /api/v1/warmup as
- * soon as the login page opens, and the backend also calls warmAi() on a
- * successful login. Both only wake the AI service in the background; nothing
- * here blocks a request.
+ * service (container boot + BERT load) takes 30-60 s. The frontend pings
+ * GET /api/v1/warmup as soon as the login page opens, and the backend also
+ * calls warmAi() on a successful login. Triage requests then wait for this
+ * warm-up instead of racing it.
+ *
+ * A sleeping Render service can answer 429 (header x-render-routing:
+ * hibernate-rate-limited) or 502/503/504 while it wakes. All of those are
+ * treated as "still waking": retry with backoff, never as a hard failure.
  *
  * Exposed state (what the UI sees):
  *   unknown      no ping yet
@@ -14,16 +17,19 @@
  *   loading      container is up, model is loading
  *   ready        BERT model loaded
  *   degraded     AI service is up but running the rule-based fallback
- *   unreachable  could not reach the AI service
+ *   unreachable  gave up (not transient, or deadline passed)
  */
 const axios = require("axios");
 const { aiServiceUrl, aiServiceSecret } = require("../../config/env");
 
-const MIN_REPING_MS   = 15_000;    // never ping more often than this
+// Tests shrink these; production leaves them at 1 / 150000.
+const SCALE        = Number(process.env.AI_RETRY_DELAY_SCALE || 1);
+const DEADLINE_MS  = Number(process.env.AI_WARM_DEADLINE_MS || 150_000);
+
+const MIN_REPING_MS   = 15_000;     // never ping more often than this
 const READY_TTL_MS    = 8 * 60_000; // re-verify a "ready" AI service after this
-const WAKE_TIMEOUT_MS = 90_000;    // cold container boot can be slow
+const WAKE_TIMEOUT_MS = 90_000;     // cold container boot can be slow
 const POLL_EVERY_MS   = 2_500;
-const POLL_DEADLINE_MS = 150_000;
 
 const state = {
   ai: "unknown",
@@ -39,7 +45,21 @@ const state = {
 let inFlight = false;
 
 const headers = () => ({ "x-internal-secret": aiServiceSecret });
-const sleep = (ms) => new Promise((r) => { const t = setTimeout(r, ms); if (t.unref) t.unref(); });
+const sleep = (ms) => new Promise((r) => { const t = setTimeout(r, Math.max(1, ms * SCALE)); if (t.unref) t.unref(); });
+
+const TRANSIENT_CODES  = new Set(["ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "ECONNRESET", "EAI_AGAIN"]);
+const TRANSIENT_STATUS = new Set([429, 502, 503, 504]);
+
+/** True when the failure just means "the AI service is still waking up". */
+function isTransient(err) {
+  if (!err) return false;
+  if (TRANSIENT_CODES.has(err.code)) return true;
+  return !!(err.response && TRANSIENT_STATUS.has(err.response.status));
+}
+
+function describeError(err) {
+  return err.code || (err.response && `HTTP ${err.response.status}`) || err.message || "error";
+}
 
 function applyAiStatus(s) {
   state.mode        = s.inference_mode || null;
@@ -65,20 +85,38 @@ async function runWarm() {
     state.ai = "waking";
     state.wakingSince = state.wakingSince || Date.now();
   }
+  const deadline = Date.now() + DEADLINE_MS;
+  let backoff = 3_000;
+  let awake = false;
   try {
-    // The first request wakes the sleeping container; it may take a while to answer.
-    const first = await axios.get(`${aiServiceUrl}/warmup`, { timeout: WAKE_TIMEOUT_MS, headers: headers() });
-    let done = applyAiStatus(first.data || {});
-    const deadline = Date.now() + POLL_DEADLINE_MS;
-    while (!done && Date.now() < deadline) {
-      await sleep(POLL_EVERY_MS);
-      const res = await axios.get(`${aiServiceUrl}/status`, { timeout: 10_000, headers: headers() });
-      done = applyAiStatus(res.data || {});
+    while (Date.now() < deadline) {
+      try {
+        // The first call wakes the sleeping container; afterwards poll /status.
+        const res = awake
+          ? await axios.get(`${aiServiceUrl}/status`, { timeout: 10_000, headers: headers() })
+          : await axios.get(`${aiServiceUrl}/warmup`, { timeout: WAKE_TIMEOUT_MS, headers: headers() });
+        // A real AI service always reports a phase. Anything else is not a warm-up
+        // we can wait on (wrong URL, proxy page, test double): stop instead of looping.
+        if (!res || !res.data || typeof res.data.phase !== "string") {
+          throw Object.assign(new Error("Unexpected response from the AI service"), { code: "BAD_AI_RESPONSE" });
+        }
+        awake = true;
+        backoff = 3_000;
+        if (applyAiStatus(res.data)) return;
+        await sleep(POLL_EVERY_MS);
+      } catch (err) {
+        if (!isTransient(err)) throw err;
+        awake = false;                 // container may have gone back to sleep
+        state.error = describeError(err);
+        await sleep(backoff);
+        backoff = Math.min(Math.round(backoff * 1.5), 12_000);
+      }
     }
-    if (!done) { state.ai = "unreachable"; state.error = "Model did not finish loading in time"; }
+    state.ai = "unreachable";
+    state.error = "AI service did not become ready in time";
   } catch (err) {
     state.ai = "unreachable";
-    state.error = err.code || (err.response && `HTTP ${err.response.status}`) || err.message || "error";
+    state.error = describeError(err);
   } finally {
     inFlight = false;
   }
@@ -97,6 +135,34 @@ function warmAi({ force = false } = {}) {
   return getState();
 }
 
+/** Call after a real request to the AI service failed transiently: the service is asleep again. */
+function noteAiFailure() {
+  try {
+    if (state.ai === "ready" || state.ai === "degraded") {
+      state.ai = "waking";
+      state.wakingSince = Date.now();
+    }
+    warmAi({ force: true });
+  } catch (_) { /* never throws */ }
+}
+
+/**
+ * Wait (up to maxMs) for the AI service to be ready, starting a warm-up if none
+ * is running. Never throws. Returns true if ready or degraded.
+ */
+async function waitUntilReady(maxMs = 45_000) {
+  try {
+    const end = Date.now() + maxMs * SCALE;
+    if (state.ai === "unknown" || (state.ai === "unreachable" && !inFlight)) warmAi({ force: true });
+    while (Date.now() < end) {
+      if (state.ai === "ready" || state.ai === "degraded") return true;
+      if (state.ai === "unreachable" && !inFlight) return false;
+      await sleep(1_000);
+    }
+  } catch (_) { /* never throws */ }
+  return state.ai === "ready" || state.ai === "degraded";
+}
+
 function getState() {
   return {
     state: state.ai,
@@ -109,14 +175,9 @@ function getState() {
   };
 }
 
-/**
- * Call the AI service with escalating timeouts (cold-start friendly).
- * Same strategy as the triage service.
- */
-const TRANSIENT_CODES  = new Set(["ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "ECONNRESET"]);
-const TRANSIENT_STATUS = new Set([502, 503, 504]);
-const TIMEOUTS = [8_000, 20_000, 40_000];
-const DELAYS   = [0, 1_500, 3_000];
+/** Call the AI service with escalating timeouts and cold-start-friendly retries. */
+const TIMEOUTS = [8_000, 20_000, 30_000, 30_000];
+const DELAYS   = [0, 3_000, 6_000, 10_000];
 
 async function aiRequest(method, path, data) {
   let last;
@@ -126,9 +187,8 @@ async function aiRequest(method, path, data) {
       return await axios({ method, url: `${aiServiceUrl}${path}`, data, timeout: TIMEOUTS[i], headers: headers() });
     } catch (err) {
       last = err;
-      const transient = TRANSIENT_CODES.has(err.code) || (err.response && TRANSIENT_STATUS.has(err.response.status));
-      if (i === TIMEOUTS.length - 1 || !transient) throw err;
-      warmAi();
+      if (i === TIMEOUTS.length - 1 || !isTransient(err)) throw err;
+      noteAiFailure();
     }
   }
   throw last;
@@ -140,4 +200,4 @@ function _resetForTests() {
   inFlight = false;
 }
 
-module.exports = { warmAi, getState, aiRequest, _resetForTests };
+module.exports = { warmAi, getState, aiRequest, waitUntilReady, noteAiFailure, isTransient, _resetForTests };

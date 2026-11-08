@@ -26,6 +26,10 @@ const modelRoutes       = require("./modules/model/model.routes");
 
 const app = express();
 
+// Behind Render's proxy: without this every user shares one rate-limit bucket (the proxy's IP)
+// and express-rate-limit logs ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set("trust proxy", 1);
+
 // ── Security headers (helmet) — must come before everything else ──────────────
 app.use(helmetMiddleware);
 

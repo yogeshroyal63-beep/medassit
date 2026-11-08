@@ -2,7 +2,7 @@ const express   = require("express");
 const rateLimit = require("express-rate-limit");
 
 const card = require("../../data/model-card.json");
-const { warmAi, getState, aiRequest } = require("../warmup/warmup.service");
+const { warmAi, getState, aiRequest, isTransient } = require("../warmup/warmup.service");
 
 const router = express.Router();
 
@@ -52,8 +52,7 @@ router.post("/explain", explainLimiter, async (req, res, next) => {
       const ai = await aiRequest("post", "/explain", { symptoms, age });
       return res.json({ ...ai.data, runtime: getState() });
     } catch (err) {
-      const transient = err.code || (err.response && [502, 503, 504].includes(err.response.status));
-      if (transient) {
+      if (isTransient(err)) {
         warmAi({ force: true });
         return res.status(503).json({
           message: "The AI service is waking up. Try again in a few seconds.",

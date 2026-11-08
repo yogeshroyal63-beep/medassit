@@ -20,28 +20,27 @@ function sanitizeSymptoms(raw) {
 }
 
 /**
- * Render's free tier spins down the AI service after ~15 min idle. The first
- * request after that can take 30-50s to respond while it boots, and may fail
- * outright with ECONNREFUSED/502/503 while the container is still starting.
- * Retry transient failures with increasing timeouts instead of surfacing a
- * hard error on the user's first request of the day.
+ * Render's free tier spins down the AI service after ~15 min idle. While it
+ * wakes it can answer ECONNREFUSED, 502/503/504, or 429 (Render's edge sends
+ * "x-render-routing: hibernate-rate-limited"). None of those mean the request
+ * is bad: wait for the warm-up (started at login), then retry with backoff.
+ * If it still fails, return a friendly 503, never the upstream 429.
  */
-const TRANSIENT_CODES  = new Set(["ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND"]);
-const TRANSIENT_STATUS = new Set([502, 503, 504]);
-const RETRY_TIMEOUTS_MS = [8000, 20000, 30000]; // escalating per attempt
-const RETRY_DELAYS_MS   = [0, 1500, 3000];
+const warmup = require("../warmup/warmup.service");
 
-function isTransient(err) {
-  if (TRANSIENT_CODES.has(err.code)) return true;
-  if (err.response && TRANSIENT_STATUS.has(err.response.status)) return true;
-  return false;
-}
+const SCALE = Number(process.env.AI_RETRY_DELAY_SCALE || 1);
+const RETRY_TIMEOUTS_MS = [8000, 20000, 30000, 30000, 30000, 30000]; // escalating per attempt
+const RETRY_DELAYS_MS   = [0, 3000, 5000, 8000, 12000, 15000];
+const MAX_WARM_WAIT_MS  = 45000;
 
 async function callAiService(symptoms, age, requestId) {
+  // Join the warm-up that started at login instead of racing it. Never throws.
+  await warmup.waitUntilReady(MAX_WARM_WAIT_MS);
+
   let lastErr;
   for (let attempt = 0; attempt < RETRY_TIMEOUTS_MS.length; attempt++) {
     if (RETRY_DELAYS_MS[attempt]) {
-      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+      await new Promise((r) => setTimeout(r, Math.max(1, RETRY_DELAYS_MS[attempt] * SCALE)));
     }
     try {
       return await axios.post(
@@ -51,12 +50,14 @@ async function callAiService(symptoms, age, requestId) {
       );
     } catch (err) {
       lastErr = err;
-      const isLastAttempt = attempt === RETRY_TIMEOUTS_MS.length - 1;
-      if (isLastAttempt || !isTransient(err)) throw err;
-      // else: transient failure, likely a cold start — loop and retry with a longer timeout
+      if (!warmup.isTransient(err)) throw err;
+      warmup.noteAiFailure(); // the service is asleep again: restart the warm-up
     }
   }
-  throw lastErr;
+  const friendly = new Error("The AI service is waking up. Please try again in a few seconds.");
+  friendly.status = 503;
+  friendly.cause = lastErr;
+  throw friendly;
 }
 
 async function runTriage(user, body, requestId) {
